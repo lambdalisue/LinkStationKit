@@ -1,0 +1,103 @@
+#!/bin/bash
+#==========================================================
+#
+# Add LinkStation Share 
+#
+# Author:   lambdalisue
+# URL:      http://hashnote.net/
+# Date:     2013.01.12
+#
+#==========================================================
+
+# is root?
+#if [ "`id | grep root`" = "" ]; then
+#    echo "Only root can create new share"
+#    exit 1
+#fi
+
+CMDNAME=`basename $0`
+USAGE="Usage: $CMDNAME [-r] [-t] [-h] [-w] [-d DISK] NAME [WRITE_USERS,] [WRITE_GROUPS,] [READ_USERS,] [READ_GROUPS,]"
+USAGE=`cat << EOT
+$USAGE
+Create new LinkStation user named USERNAME.
+It add Linux System User and Samba User automatically.
+
+Arguments:
+    NAME            A name of the share space (Require)
+    WRITE_USERS     Comma separated user names who have write permission to the share
+    WRITE_GROUPS    Comma separated group names which have write permission to the share
+    READ_USERS      Comma separated user names who have read permission to the share
+    READ_GROUPS     Comma separated group names which have read permission to the share
+
+Options:
+    -r      Make the new share readonly (Default: 0)
+    -t      Enable RecycleBin in the share (Default: on)
+    -h      Hide the share (Default: off)
+    -w      Do not restart samba daemon. You have to restart samba daemon manually (Default: true)
+    -d      The new share will located on DISK (Default: array1)
+EOT`
+
+READONLY="1"
+TRASHBIN="off"
+VISIBLE="on"
+DISK="array1"
+WITHOUT="FALSE"
+
+# parse option arguments
+while getopts rthwd: flag; do
+    case $flag in
+        "r" ) READONLY="0" ;;
+        "t" ) TRASHBIN="on" ;;
+        "h" ) VISIBLE="off" ;;
+        "w" ) WITHOUT="TRUE" ;;
+        "d" ) DISK="$OPTARG" ;;
+        * ) echo $USAGE 1>&2
+            exit 1 ;;
+    esac
+done
+            
+# remove option arguments
+shift `expr $OPTIND - 1`
+
+# get NAME from argument
+NAME=$1
+WUSERS=$2
+WGROUPS=$3
+RUSERS=$4
+RGROUPS=$5
+
+# is NAME specified?
+if [ "$NAME" = "" ]; then
+    echo $USAGE 1>&2
+    exit 1
+fi
+
+
+echo "=== Create system directory ========================================"
+ROOT="/mnt/$DISK/$NAME"
+if [ -d $ROOT ]; then
+    # the directory already exists
+    echo "System directory '$ROOT' already exists."
+else
+    mkdir $ROOT
+    chmod go+w $ROOT
+    echo "System directory '$ROOT' was created."
+fi
+
+echo "=== Create new LinkStation Share ==================================="
+if [ `cat /etc/melco/shareinfo | grep -c "^$NAME<>"` != "0" ]; then
+    # the USERNAME exists in /etc/melco/userinfo
+    echo "LinkStation Share '$NAME' already exists."
+else
+    echo "$NAME<>on<><><><><><>;" >> /etc/melco/offlinefile
+    echo "$NAME<>$DISK<>off<><><><><>;" >> /etc/melco/shareinfo.pocketu
+    echo "$NAME<>$DISK<>off<><><><><>;" >> /etc/melco/shareinfo.webaxs
+    echo "$NAME<>$VISIBLE<><><><><><>;" >> /etc/melco/shareinfo.hidden
+    echo "$NAME<>$TRASHBIN<>on<>off<>0<>off<><>;" >> /etc/melco/shareinfo.vfs
+    echo "$NAME<>$DISK<><>$WUSERS<>$WGROUPS<>$RUSERS<>$RGROUPS<>$READONLY<>1<>0<>0<><>0<>1<>0<>0<>0<>0;" >> /etc/melco/shareinfo
+
+    # restart Samba
+    if [ "$WITHOUT" = "FALSE" ]; then
+        /etc/init.d/smb.sh restart
+    fi
+fi

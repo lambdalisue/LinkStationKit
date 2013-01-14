@@ -1,0 +1,46 @@
+#!/bin/bash
+#==========================================================
+#
+# Delete LinkStation Group
+#
+# Author:   lambdalisue
+# URL:      http://hashnote.net/
+# Date:     2013.01.12
+#
+#==========================================================
+
+# is root?
+if [ "`id | grep root`" = "" ]; then
+    echo "Only root can delete user"
+    exit 1
+fi
+
+CMDNAME=`basename $0`
+USAGE="Usage: $CMDNAME GROUPNAME"
+
+# get GROUPNAME from argument
+GROUPNAME=$1
+
+# is GROUPNAME specified?
+if [ "$GROUPNAME" = "" ]; then
+    echo $USAGE 1>&2
+    exit 1
+fi
+
+# get GID
+GID=`grep ^$GROUPNAME: /etc/group | cut -d: -f3`
+
+if [ $((GID)) -lt 1000 ]; then
+    # the group is System one, should not delete
+    echo "Group '$GROUPNAME' is system group."
+    exit 1
+fi
+
+# Remove group from Linux system
+echo "=== Remove Linux Group ======================================="
+groupdel $GROUPNAME
+
+# Remove lines starts with USERNAME
+echo "=== Remove LinkStation Group ================================="
+sed -i "/^$GROUPNAME/d" /etc/melco/groupinfo
+sed -i "/^$GROUPNAME/d" /etc/melco/quota.group

@@ -1,0 +1,137 @@
+#!/bin/bash
+#==========================================================
+#
+# Add LinkStation User
+#
+# Author:   lambdalisue
+# URL:      http://hashnote.net/
+# Date:     2013.01.12
+#
+#==========================================================
+
+# is root?
+if [ "`id | grep root`" = "" ]; then
+    echo "Only root can create new user"
+    exit 1
+fi
+
+CMDNAME=`basename $0`
+USAGE="Usage: $CMDNAME [-h HOME] [-p PASSWORD] [-g GROUP] [-G GROUPS,] [-q QUOTA (GB)] USERNAME"
+USAGE=`cat << EOT
+$USAGE
+Create new LinkStation user named USERNAME.
+It add Linux System User and Samba User automatically.
+
+Arguments:
+    USERNAME        The username
+ 
+Options:
+    -h      Home directory path (/home/<username>)
+    -p      Password of the user
+    -g      Group of the user
+    -G      Groups of the user. Comma separated (e.g. A,B,C)
+    -q      Quota of the user. The unit it GB
+EOT`
+
+# parse option arguments
+while getopts h:p:g:G:q:d: OPT; do
+    case $OPT in
+        "h" ) HOME_PATH="$OPTARG" ;;
+        "p" ) PASSWORD="$OPTARG" ;;
+        "g" ) GROUP="$OPTARG" ;;
+        "G" ) GROUP_LIST="$OPTARG" ;;
+        "q" ) QUOTA="$OPTARG" ;;
+        "d" ) HOME_PATH="$OPTARG" ;;
+        * ) echo $USAGE 1>&2
+            exit 1 ;;
+    esac
+done
+            
+# remove option arguments
+shift `expr $OPTIND - 1`
+
+# get USERNAME from argument
+USERNAME=$1
+
+# is USERNAME specified?
+if [ "$USERNAME" = "" ]; then
+    echo $USAGE 1>&2
+    exit 1
+fi
+
+# is PASSWORD specified?
+if [ "$PASSWORD" = "" ]; then
+    password1=''
+    password2=''
+    shortest=5
+    # trap Ctrl-C and make `stty echo` to visualize keyboard input
+    trap "stty echo; exit 1" 2
+    while : ; do
+        # hide keyboard input for security
+        stty -echo
+        echo -n "New Password: "
+        read password1
+        echo
+        echo -n "Retype new Password: "
+        read password2
+        echo
+        if [ ${#password1} -lt $shortest -o ${#password2} -lt $shortest ]; then
+            echo "Password should be longer than $shortest characters"
+            continue
+        fi
+        if [ "$password1" = "$password2" ]; then
+            PASSWORD=$password1
+            break
+        else
+            echo "Passwords do not match."
+        fi
+    done
+    stty echo
+fi
+
+
+echo "=== Create new Linux User ========================================"
+if [ `cat /etc/passwd | grep -c "^$USERNAME:"` != "0" ]; then
+    # the USERNAME exists in `/etc/passwd`
+    echo "Linux User '$USERNAME' already exists."
+else
+    OPTS=""
+    if [ "$HOME_PATH" != "" ]; then
+        OPTS="-d $HOME_PATH $OPTS"
+    fi
+    if [ "$GROUP" != "" ]; then
+        OPTS="-g $GROUP $OPTS"
+    fi
+    if [ "$GROUP_LIST" != "" ]; then
+        OPTS="-G $GROUP_LIST $OPTS"
+    fi
+    # add new Linux User
+    useradd $OPTS $USERNAME
+    (echo $PASSWORD; echo $PASSWORD) | passwd $USERNAME
+fi
+
+
+echo "=== Create new Samba User ========================================"
+if [ `pdbedit -L | grep -c "^$USERNAME:"` != "0" ]; then
+    # the USERNAME exists in TDB passwd
+    echo "Samba User '$USERNAME' already exists."
+else
+    # add new Samba User
+    (echo $PASSWORD; echo $PASSWORD) | pdbedit -at -u $USERNAME
+fi
+
+
+echo "=== Create new LinkStation User ==================================="
+if [ `cat /etc/melco/userinfo | grep -c "^$USERNAME<>"` != "0" ]; then
+    # the USERNAME exists in /etc/melco/userinfo
+    echo "LinkStation User '$USERNAME' already exists."
+else
+    # add new Samba User
+    if [ "$QUOTA" != "" ]; then
+        # QUOTA = QUOTA * GB
+        GB=1073741824
+        QUOTA=`expr $QUOTA '*' $GB`
+    fi
+    echo "$USERNAME<>;" >> /etc/melco/userinfo
+    echo "$USERNAME<>$QUOTA<>$QUOTA<><><><><>;" >> /etc/melco/quota.user
+fi

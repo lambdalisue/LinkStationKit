@@ -1,0 +1,81 @@
+#!/usr/bin/env python
+# vim: set fileencoding=utf-8 :
+#
+# mkpasswd Python version
+#
+# Author: lambdalisue
+# URL: http://hashnote.net
+#
+import os
+import random
+from optparse import OptionParser
+
+
+def choice(n, src):
+    return [random.choice(src) for i in xrange(n)]
+
+
+def flatten(l):
+    if isinstance(l, (list, tuple)):
+        if len(l) == 0:
+            return []
+        else:
+            return flatten(l[0]) + flatten(l[1:])
+    else:
+        return [l]
+
+
+def mkpasswd(length, d=2, c=2, C=2, s=1):
+    # except l, o, u, v, I, O, U, V
+    CHARS_LOWER = "abcdefghijkmnpqrstwxyz"
+    CHARS_UPPER = "ABCDEFGHJKLMNPQRSTXYZ"
+    # except 0, 1
+    DIGITS = "23456789"
+    # some special chars
+    SPECIALS = "!#$%&()^[]{}@*<>?_"
+    # total
+
+    digits = choice(d, DIGITS)
+    chars = choice(c, CHARS_LOWER)
+    Chars = choice(C, CHARS_UPPER)
+    specials = choice(s, SPECIALS)
+
+    password = [digits, chars, Chars, specials]
+    if length > len(password):
+        # add extra characters
+        src = ""
+        if d > 0: src += DIGITS
+        if c > 0: src += CHARS_LOWER
+        if C > 0: src += CHARS_UPPER
+        if s > 0: src += SPECIALS
+        password.append(choice(length - len(password), src))
+    return "".join(flatten(password))
+
+
+def main():
+    parser = OptionParser()
+    parser.add_option('-l', dest='length', default=9, type='int', metavar="#",
+                      help='length of password, default = 9')
+    parser.add_option('-d', dest='digits', default=2, type='int', metavar="#",
+                      help='min # of digits, default = 2')
+    parser.add_option('-c', dest='chars', default=2, type='int', metavar="#",
+                      help='min # of lowercase chars, default = 2')
+    parser.add_option('-C', dest='Chars', default=2, type='int', metavar="#",
+                      help='min # of uppercase chars, default = 2')
+    parser.add_option('-s', dest='specials', default=1, type='int', metavar="#",
+                      help='min # of special chars, default = 1')
+    parser.add_option('-2', dest='query', action='store_true', default=False,
+                      help='dummy')
+
+    opts, args = parser.parse_args()
+
+    password = mkpasswd(
+        opts.length, opts.digits, opts.chars,
+        opts.Chars, opts.specials
+    )
+
+    print password
+
+if __name__ == '__main__':
+    random.seed = (os.urandom(1024))
+    main()

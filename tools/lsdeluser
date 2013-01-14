@@ -1,0 +1,48 @@
+#!/bin/bash
+#==========================================================
+#
+# Delete LinkStation User
+#
+# Author:   lambdalisue
+# URL:      http://hashnote.net/
+# Date:     2013.01.12
+#
+#==========================================================
+
+# is root?
+if [ "`id | grep root`" = "" ]; then
+    echo "Only root can delete user"
+    exit 1
+fi
+
+CMDNAME=`basename $0`
+USAGE="Usage: $CMDNAME USERNAME"
+
+# get USERNAME from argument
+USERNAME=$1
+
+# is USERNAME specified?
+if [ "$USERNAME" = "" ]; then
+    echo $USAGE 1>&2
+    exit 1
+fi
+
+# get UID
+if [ $((`id $USERNAME -u`)) -lt 1000 ]; then
+    # the user is System one, should not delete
+    echo "User '$USERNAME' is system user."
+    exit 1
+fi
+
+# Remove user from Linux system
+echo "=== Remove Linux User ======================================="
+userdel $USERNAME
+
+# Remove from smbuserdb
+echo "=== Remove Samba User ======================================="
+pdbedit -u $USERNAME -x
+
+# Remove lines starts with USERNAME
+echo "=== Remove LinkStation User ================================="
+sed -i "/^$USERNAME/d" /etc/melco/userinfo
+sed -i "/^$USERNAME/d" /etc/melco/quota.user

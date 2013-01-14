@@ -1,0 +1,49 @@
+#!/bin/bash
+#==========================================================
+#
+# Delete LinkStation Share
+#
+# Author:   lambdalisue
+# URL:      http://hashnote.net/
+# Date:     2013.01.12
+#
+#==========================================================
+
+# is root?
+if [ "`id | grep root`" = "" ]; then
+    echo "Only root can delete user"
+    exit 1
+fi
+
+CMDNAME=`basename $0`
+USAGE="Usage: $CMDNAME NAME"
+
+# get NAME from argument
+NAME=$1
+# is NAME specified?
+if [ "$NAME" = "" ]; then
+    echo $USAGE 1>&2
+    exit 1
+fi
+
+# Get Disk name from /etc/melco/shareinfo
+DISK=`sed -n "/^$NAME<>/p" /etc/melco/shareinfo | awk -F'<>' '{ print $2 }'`
+ROOT="/mnt/$DISK"
+
+# Remove lines starts with USERNAME
+echo "=== Remove LinkStation Share ================================"
+sed -i "/^$NAME/d" /etc/melco/offlinefile
+sed -i "/^$NAME/d" /etc/melco/shareinfo.pocketu
+sed -i "/^$NAME/d" /etc/melco/shareinfo.webaxs
+sed -i "/^$NAME/d" /etc/melco/shareinfo.hidden
+sed -i "/^$NAME/d" /etc/melco/shareinfo.vfs
+sed -i "/^$NAME/d" /etc/melco/shareinfo
+
+echo "-------------------------------------------------------------"
+echo
+echo "Notice"
+echo
+echo "  Direcotry '$ROOT/$NAME' is not removed automatically"
+echo "  You have to remove the directory with your own responsibility"
+echo
+echo "-------------------------------------------------------------"

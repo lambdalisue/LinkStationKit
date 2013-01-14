@@ -1,0 +1,82 @@
+#!/bin/bash
+#==========================================================
+#
+# Add LinkStation Group
+#
+# Author:   lambdalisue
+# URL:      http://hashnote.net/
+# Date:     2013.01.12
+#
+#==========================================================
+
+# is root?
+if [ "`id | grep root`" = "" ]; then
+    echo "Only root can create new user"
+    exit 1
+fi
+
+CMDNAME=`basename $0`
+USAGE="Usage: $CMDNAME [-g GID] [-q QUOTA (GB)] GROUPNAME"
+USAGE=`cat << EOT
+$USAGE
+Create new LinkStation group named GROUPNAME
+It add Linux System Group automatically.
+
+Arguments:
+    GROUPNAME        The group name
+ 
+Options:
+    -g      GID of the Group
+    -q      Quota of the group. The unit it GB
+EOT`
+
+# parse option arguments
+while getopts g:q: OPT; do
+    case $OPT in
+        "g" ) GID="$OPTARG" ;;
+        "q" ) QUOTA="$OPTARG" ;;
+        * ) echo $USAGE 1>&2
+            exit 1 ;;
+    esac
+done
+            
+# remove option arguments
+shift `expr $OPTIND - 1`
+
+# get GROUPNAME from argument
+GROUPNAME=$1
+
+# is GROUPNAME specified?
+if [ "$GROUPNAME" = "" ]; then
+    echo $USAGE 1>&2
+    exit 1
+fi
+
+echo "=== Create new Linux Group ========================================"
+if [ `cat /etc/group | grep -c "^$GROUPNAME:"` != "0" ]; then
+    # the GROUPNAME exists in `/etc/group`
+    echo "Linux Group '$GROUPNAME' already exists."
+else
+    OPTS=""
+    if [ "$GID" != "" ]; then
+        OPTS="-g $GID $OPTS"
+    fi
+    # add new Linux Group
+    groupadd $OPTS $GROUPNAME
+fi
+
+
+echo "=== Create new LinkStation Group ==================================="
+if [ `cat /etc/melco/groupinfo | grep -c "^$GROUPNAME<>"` != "0" ]; then
+    # the GROUPNAME exists in /etc/melco/groupinfo
+    echo "LinkStation Group '$GROUPNAME' already exists."
+else
+    # add new Samba User
+    if [ "$QUOTA" != "" ]; then
+        # QUOTA = QUOTA * GB
+        GB=1073741824
+        QUOTA=`expr $QUOTA '*' $GB`
+    fi
+    echo "$GROUPNAME<>;" >> /etc/melco/groupinfo
+    echo "$GROUPNAME<>$QUOTA<>$QUOTA<><><><><>;" >> /etc/melco/quota.group
+fi
